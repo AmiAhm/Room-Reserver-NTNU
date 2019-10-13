@@ -1,4 +1,5 @@
 # Automatic room reserver  NTNU
+Reserves room by criterias in 14 days into the future
 ## Requirements
 Runs python3 using the following libraries:
 
