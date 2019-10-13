@@ -33,15 +33,17 @@ if 'init' in args.keys():
 else:
     init = False
 
-if not init: 
-	if 'start' not in args.keys():
-		raise Exception("Need start time. Pass start='HH:MM'")
-	else:
-		start = args['start']
-	if 'desc' not in args.keys():
-		raise Exception("Need description. Pass description='Your room reservation description here'")
-	else:
-		reservation_description = args['desc'] # Title of reservation
+if 'reserve' in args.keys() and args['reserve'].lower() in ("no", "false", "f", "0"):
+	reserve = False
+else:
+    reserve = True
+
+
+if 'store' in args.keys()and args['store'].lower() in ("no", "false", "f", "0"):
+    store_found = False
+else:
+    store_found = True
+
 
 
 if 'duration' not in args.keys():
@@ -54,6 +56,18 @@ if 'min_size' not in args.keys():
 	min_size='10'
 else:
 	min_size = args['min_size'] # Reservation time in hr, max 4hr
+
+
+
+if not init: 
+	if 'start' not in args.keys():
+		raise Exception("Need start time. Pass start='HH:MM'")
+	else:
+		start = args['start']
+	if 'desc' not in args.keys() and reserve:
+		raise Exception("Need description. Pass description='Your room reservation description here'")
+	elif reserve:
+		reservation_description = args['desc'] # Title of reservation
 
 
 reserve_in_n_days = 14 # Reserve room n-day time from now
@@ -169,7 +183,7 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
         if path_exists:     
             found_rooms = pd.read_csv(room_priority_path, encoding='utf8')
         else:
-            np.array(available_room_ids)
+            return np.array(available_room_ids)
 
         room_val = lambda room_id : max(found_rooms.loc[found_rooms['room_id'] == room_id]['rank'].values)
         available_room_ids_ordered = [[room_id, room_val(room_id)] for room_id in available_room_ids]
@@ -269,7 +283,7 @@ def find_room_to_reserve():
 		for roomtype in roomtypes["roomtype_id"].values:
 			for building in buildings["building_id"].values:
 				print(area, roomtype, building)
-				rooms = find_available_rooms(area, roomtype, building, store_found = True, prioritize = True)
+				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
 				if len(rooms)>0:
 					return (area, roomtype, building, rooms[0])
 
@@ -284,14 +298,20 @@ if not init:
 	print("Duration: ")
 	print(duration)
 
-	print("Description: ")
-	print(reservation_description)
 
 	print("Min Size: ")
 	print(min_size)
 
+	print("Store Found: ")
+	print(store_found)
+
 	area, roomtype, building, room = find_room_to_reserve()
-	print("Reserving room:")
-	print(room)
-	reserve_room(room, area, roomtype, building)
+	
+	if reserve:
+		print("Description: ")
+		print(reservation_description)
+
+		print("Reserving room:")
+		print(room)
+		reserve_room(room, area, roomtype, building)
 

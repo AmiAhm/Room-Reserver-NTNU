@@ -1,0 +1,17 @@
+roomtype,roomtype_id,rank
+Alle undervisningsrom,NONE,0
+Auditorium,AUD,0
+Dataarbeidsplass,DATA,0
+Ferdighetsrom,FER,0
+Grupperom,GRUPPE,0
+Idrettshall,HALL,0
+Kantine,KANT,0
+Laboratorium,LAB,0
+Seminarrom,SEM,0
+Simulator,SIM,0
+Språklaboratorium,SPRLAB,0
+Stand plass,STAND,0
+Undervisningslaboratorium,UNDLAB,0
+Undervisningsrom,UND,1
+Undervisningsrom - data,UNDDAT,0
+Vrimleareal,VRIMLE,0
