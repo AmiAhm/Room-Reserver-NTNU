@@ -12,8 +12,6 @@ args = {}
 for pair in sys.argv[1:]:
     args.__setitem__(*((pair.split('=', 1) + [''])[:2]))
 
-
-
 if 'FUSER' not in environ.keys():
 	raise Exception("No feide username found. Create env var: FUSER")
 
@@ -151,6 +149,7 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
     }
 
     request = session.post(MAIN_URL, data=room_filter_data)
+    print("Find available rooms request: " + str(request))
 
     available_room_ids = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/@title')
     available_room_ids = available_room_ids[0::3]
