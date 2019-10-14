@@ -79,27 +79,20 @@ roomtypes_path = "roomtypes.csv"
 
 
 # Create session and login. 
-session = requests.Session() # Start main session
-init_request = session.get(MAIN_URL) # Get login page
-print("Init request: " + str(init_request))
+session = requests.Session()
+request = session.get(MAIN_URL)
 newUrl = request.url
-
-# Get parameteres needed to login
 asLen = html.fromstring(request.content).xpath('//input[@name="asLen"]/@value')[0]
 AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
 auth_data = {
-    'USERNAME': USERNAME,
-    'PASSWORD':PASSWORD,
+    'feidename': USERNAME,
+    'password': PASSWORD,
     'asLen': asLen,
     'AuthState': AuthState,
     'org': 'ntnu.no'
 }
-
-# Post login data
 auth_request = session.post(newUrl, auth_data)
 print("Auth request: " + str(auth_request))
-
-# Confirmation needed as no-js
 action = html.fromstring(auth_request.content).xpath('//form/@action')[0]
 SAMLResponse = html.fromstring(auth_request.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
 RelayState = html.fromstring(auth_request.content).xpath('//input[@name="RelayState"]/@value')[0]
@@ -110,7 +103,7 @@ auth_confirmation_data = {
 }
 
 nojs_auth_confirmation_request = session.post(action, auth_confirmation_data)
-print("Auth confirmation nojs request: " + str(auth_confirmation_nojs_request))
+print("Auth confirmation nojs request: " + str(nojs_auth_confirmation_request))
 
 
 def find_areas(request):
@@ -271,30 +264,15 @@ def find_room_to_reserve():
 			for building in buildings["building_id"].values:
 				print(area, roomtype, building)
 				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
-				if len(rooms)>0 and not init:
+				if len(rooms)>0 and reserve:
 					return (area, roomtype, building, rooms[0])
+	return "", "", "", ""
 
 
 if not init:
-	print("Start: ")
-	print(start)
-
-	print("Duration: ")
-	print(duration)
-
-
-	print("Min Size: ")
-	print(min_size)
-
-	print("Store Found: ")
-	print(store_found)
-
 	area, roomtype, building, room = find_room_to_reserve()
 	
 	if reserve:
-		print("Description: ")
-		print(reservation_description)
-
 		print("Reserving room:")
 		print(room)
 		reserve_room(room, area, roomtype, building)
