@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[6]:
-
-
 import requests
 from lxml import html
 from datetime import date, timedelta
@@ -16,17 +12,14 @@ args = {}
 for pair in sys.argv[1:]:
     args.__setitem__(*((pair.split('=', 1) + [''])[:2]))
 
-
-feidename = environ['FUSER'] # Feide user name
-password = environ['FPASSWORD'] # Feide password
-
-if len(feidename) == 0:
+if 'FUSER' not in environ.keys():
 	raise Exception("No feide username found. Create env var: FUSER")
 
-if len(password) == 0:
+if 'FPASSWORD' not in environ.keys():
 	raise Exception("No feide username found. Create env var: FPASSWORD")
 
-
+USERNAME = environ['FUSER'] # Feide username
+PASSWORD = environ['FPASSWORD'] # Feide PASSWORD
 
 if 'init' in args.keys():  
     init = args['init'].lower() in ("yes", "true", "t", "1")
@@ -85,9 +78,6 @@ buildings_path = "buildings.csv"
 roomtypes_path = "roomtypes.csv"
 
 
-# In[8]:
-
-
 # Create session and login. 
 session = requests.Session()
 request = session.get(MAIN_URL)
@@ -95,50 +85,47 @@ newUrl = request.url
 asLen = html.fromstring(request.content).xpath('//input[@name="asLen"]/@value')[0]
 AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
 auth_data = {
-    'feidename': feidename,
-    'password':password,
+    'feidename': USERNAME,
+    'password': PASSWORD,
     'asLen': asLen,
     'AuthState': AuthState,
     'org': 'ntnu.no'
 }
-request2 = session.post(newUrl, auth_data)
-
-action = html.fromstring(request2.content).xpath('//form/@action')[0]
-SAMLResponse = html.fromstring(request2.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
-RelayState = html.fromstring(request2.content).xpath('//input[@name="RelayState"]/@value')[0]
+auth_request = session.post(newUrl, auth_data)
+print("Auth request: " + str(auth_request))
+action = html.fromstring(auth_request.content).xpath('//form/@action')[0]
+SAMLResponse = html.fromstring(auth_request.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
+RelayState = html.fromstring(auth_request.content).xpath('//input[@name="RelayState"]/@value')[0]
 
 auth_confirmation_data = {
     'SAMLResponse': SAMLResponse,
     'RelayState': RelayState
 }
 
-request3 = session.post(action, auth_confirmation_data)
+nojs_auth_confirmation_request = session.post(action, auth_confirmation_data)
+print("Auth confirmation nojs request: " + str(nojs_auth_confirmation_request))
 
 
-# In[3]:
-
-
-def find_areas():
-    areas = html.fromstring(request3.content).xpath('//select[contains(@name,"area")]/option/text()')
-    area_ids = html.fromstring(request3.content).xpath('//select[contains(@name,"area")]/option/@value')
+def find_areas(request):
+    areas = html.fromstring(request.content).xpath('//select[contains(@name,"area")]/option/text()')
+    area_ids = html.fromstring(request.content).xpath('//select[contains(@name,"area")]/option/@value')
     area_df = pd.DataFrame(np.array([areas, area_ids]).T, columns = ["area", "area_id"])
     area_df["rank"] = 0
     area_df.to_csv(areas_path, index=False)
-def find_buildings():
-    buildings = html.fromstring(request3.content).xpath('//select[contains(@name,"building")]/option/text()')
-    buildings_ids = html.fromstring(request3.content).xpath('//select[contains(@name,"building")]/option/@value')
+
+def find_buildings(request):
+    buildings = html.fromstring(request.content).xpath('//select[contains(@name,"building")]/option/text()')
+    buildings_ids = html.fromstring(request.content).xpath('//select[contains(@name,"building")]/option/@value')
     buildings_df = pd.DataFrame(np.array([buildings, buildings_ids]).T, columns = ["building", "building_id"])
     buildings_df["rank"] = 0
     buildings_df.to_csv(buildings_path, index=False)
-def find_roomtypes():
-    roomtypes = html.fromstring(request3.content).xpath('//select[contains(@name,"roomtype")]/option/text()')
-    roomtypes_ids = html.fromstring(request3.content).xpath('//select[contains(@name,"roomtype")]/option/@value')
+
+def find_roomtypes(request):
+    roomtypes = html.fromstring(request.content).xpath('//select[contains(@name,"roomtype")]/option/text()')
+    roomtypes_ids = html.fromstring(request.content).xpath('//select[contains(@name,"roomtype")]/option/@value')
     roomtypes_df = pd.DataFrame(np.array([roomtypes, roomtypes_ids]).T, columns = ["roomtype", "roomtype_id"])
     roomtypes_df["rank"] = 0
     roomtypes_df.to_csv(roomtypes_path, index=False)
-
-
-# In[4]:
 
 
 def find_available_rooms(area, roomtype, building, store_found = False, prioritize = True):
@@ -154,12 +141,13 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
       'preformsubmit': '1'
     }
 
-    request4 = session.post(MAIN_URL, data=room_filter_data)
+    request = session.post(MAIN_URL, data=room_filter_data)
+    print("Find available rooms request: " + str(request))
 
-    available_room_ids = html.fromstring(request4.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/@title')
+    available_room_ids = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/@title')
     available_room_ids = available_room_ids[0::3]
 
-    available_room_names = html.fromstring(request4.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/a/text()')
+    available_room_names = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/a/text()')
     available_room_names = [room.strip() for room in available_room_names]
     
     if len(available_room_ids) == 0:
@@ -194,10 +182,6 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
 
 
 
-
-# In[5]:
-
-
 # Start reservation of room
 def reserve_room(room, area, roomtype, building):
     reservation_data = {
@@ -214,11 +198,11 @@ def reserve_room(room, area, roomtype, building):
       'submitall': 'Bestill \u21E8'
     }
 
-    request5 = session.post(MAIN_URL, data=reservation_data)
-    request5
+    reserve_request = session.post(MAIN_URL, data=reservation_data)
+    print("reserve request: " + str(reserve_request))
 
     # Confrim reservation
-    tokenrb = html.fromstring(request5.content).xpath('//form//input[contains(@name, "tokenrb")]/@value')[0]
+    tokenrb = html.fromstring(reserve_request.content).xpath('//form//input[contains(@name, "tokenrb")]/@value')[0]
     reservation_confirmation_data = {
       'name': reservation_description,
       'notes': '',
@@ -239,19 +223,17 @@ def reserve_room(room, area, roomtype, building):
       'tokenrb': tokenrb
     }
 
-    request6 = session.post(MAIN_URL, data=reservation_confirmation_data)
+    reserve_confirmation_request = session.post(MAIN_URL, data=reservation_confirmation_data)
+    print("reserve_confirmation_request: " + str(reserve_confirmation_request))
 
 
-# In[6]:
-
-
-# All filters
+# All filters, criteria selections
 if not path.exists(buildings_path):
-    find_buildings()
+    find_buildings(nojs_auth_confirmation_request)
 if not path.exists(roomtypes_path):
-    find_roomtypes()
+    find_roomtypes(nojs_auth_confirmation_request)
 if not path.exists(areas_path):
-    find_areas()
+    find_areas(nojs_auth_confirmation_request)
 
 buildings = pd.read_csv(buildings_path)
 buildings = buildings.loc[buildings["rank"] != 0]
@@ -268,8 +250,6 @@ roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
 roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
 
 
-# In[7]:
-
 
 def find_room_to_reserve():
 	if len(areas["area_id"].values)==0:
@@ -284,33 +264,15 @@ def find_room_to_reserve():
 			for building in buildings["building_id"].values:
 				print(area, roomtype, building)
 				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
-				if len(rooms)>0:
+				if len(rooms)>0 and reserve:
 					return (area, roomtype, building, rooms[0])
-
-
-# In[8]:
+	return "", "", "", ""
 
 
 if not init:
-	print("Start: ")
-	print(start)
-
-	print("Duration: ")
-	print(duration)
-
-
-	print("Min Size: ")
-	print(min_size)
-
-	print("Store Found: ")
-	print(store_found)
-
 	area, roomtype, building, room = find_room_to_reserve()
 	
 	if reserve:
-		print("Description: ")
-		print(reservation_description)
-
 		print("Reserving room:")
 		print(room)
 		reserve_room(room, area, roomtype, building)
