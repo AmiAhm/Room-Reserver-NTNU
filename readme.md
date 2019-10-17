@@ -1,5 +1,6 @@
-# Automatic room reserver
-Reserves room by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again! 
+# Automatic Room Reserver
+Reserves rooms at NTNU by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again! 
+
 
 ## Requirements
 Runs python3 using the following libraries:
