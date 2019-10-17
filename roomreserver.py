@@ -8,6 +8,7 @@ import pandas as pd
 from os import path, environ
 import sys
 
+# Read arguments
 args = {}
 for pair in sys.argv[1:]:
     args.__setitem__(*((pair.split('=', 1) + [''])[:2]))
@@ -21,7 +22,7 @@ if 'FPASSWORD' not in environ.keys():
 USERNAME = environ['FUSER'] # Feide username
 PASSWORD = environ['FPASSWORD'] # Feide PASSWORD
 
-if 'init' in args.keys():  
+if 'init' in args.keys():
     init = args['init'].lower() in ("yes", "true", "t", "1")
 else:
     init = False
@@ -48,11 +49,18 @@ else:
 if 'min_size' not in args.keys():
 	min_size='10'
 else:
-	min_size = args['min_size'] # Reservation time in hr, max 4hr
+	min_size = args['min_size']
+
+if 'reserve_in' not in args.keys():
+	reserve_in_n_days = 14
+else:
+	reserve_in_n_days = int(args['reserve_in']) # Reserve in n_days
 
 
 
-if not init: 
+
+
+if not init:
 	if 'start' not in args.keys():
 		raise Exception("Need start time. Pass start='HH:MM'")
 	else:
@@ -61,9 +69,6 @@ if not init:
 		raise Exception("Need description. Pass description='Your room reservation description here'")
 	elif reserve:
 		reservation_description = args['desc'] # Title of reservation
-
-
-reserve_in_n_days = 14 # Reserve room n-day time from now
 
 
 date_to_reserve = date.today()+timedelta(days=reserve_in_n_days)
@@ -78,7 +83,7 @@ buildings_path = "buildings.csv"
 roomtypes_path = "roomtypes.csv"
 
 
-# Create session and login. 
+# Create session and login.
 session = requests.Session()
 request = session.get(MAIN_URL)
 newUrl = request.url
@@ -127,6 +132,13 @@ def find_roomtypes(request):
     roomtypes_df["rank"] = 0
     roomtypes_df.to_csv(roomtypes_path, index=False)
 
+def max_room_rank(room_id, found_rooms):
+    room_ranks = found_rooms.loc[found_rooms['room_id'] == room_id]['rank'].values
+    if len(room_ranks) == 0:
+        return -1
+
+    return max(room_ranks)
+
 
 def find_available_rooms(area, roomtype, building, store_found = False, prioritize = True):
     room_filter_data = {
@@ -136,7 +148,7 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
       'area': area,
       'building': building,
       'roomtype': roomtype,
-      'size': '10',
+      'size': min_size,
       'new_equipment': '',
       'preformsubmit': '1'
     }
@@ -149,14 +161,14 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
 
     available_room_names = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/a/text()')
     available_room_names = [room.strip() for room in available_room_names]
-    
+
     if len(available_room_ids) == 0:
         return np.array([])
 
     new_rooms = []
     if store_found:
         path_exists = path.exists(room_priority_path)
-        if path_exists:     
+        if path_exists:
             found_rooms = pd.read_csv(room_priority_path, encoding='utf8')
 
         for room in np.c_[available_room_names, available_room_ids]:
@@ -168,15 +180,20 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
 
     if prioritize:
         path_exists = path.exists(room_priority_path)
-        if path_exists:     
+        if path_exists:
             found_rooms = pd.read_csv(room_priority_path, encoding='utf8')
         else:
             return np.array(available_room_ids)
 
-        room_val = lambda room_id : max(found_rooms.loc[found_rooms['room_id'] == room_id]['rank'].values)
-        available_room_ids_ordered = [[room_id, room_val(room_id)] for room_id in available_room_ids]
+        available_room_ids_ordered = []
+
+        for room_id in available_room_ids:
+            max_room_rank_value =  max_room_rank(room_id, found_rooms)
+            if max_room_rank_value < 0:
+                continue
+            available_room_ids_ordered += [[room_id, max_room_rank_value]]
         available_room_ids_ordered = sorted(available_room_ids_ordered, key=lambda row: row[1], reverse = True)
-                
+
         return np.array(available_room_ids_ordered)[:,0]
     return np.array(available_room_ids)
 
@@ -226,8 +243,25 @@ def reserve_room(room, area, roomtype, building):
     reserve_confirmation_request = session.post(MAIN_URL, data=reservation_confirmation_data)
     print("reserve_confirmation_request: " + str(reserve_confirmation_request))
 
+def find_room_to_reserve():
+	if len(areas["area_id"].values)==0:
+		print("Need to set area ranks")
+	if len(roomtypes["roomtype_id"].values) == 0:
+		print("Need to set roomtype ranks")
+	if len(buildings["building_id"].values) == 0:
+		print("Need to set building ranks")
 
-# All filters, criteria selections
+	for area in areas["area_id"].values:
+		for roomtype in roomtypes["roomtype_id"].values:
+			for building in buildings["building_id"].values:
+				print(area, roomtype, building)
+				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
+				if len(rooms)>0 and reserve:
+					return (area, roomtype, building, rooms[0])
+	return "", "", "", ""
+
+
+
 if not path.exists(buildings_path):
     find_buildings(nojs_auth_confirmation_request)
 if not path.exists(roomtypes_path):
@@ -250,30 +284,9 @@ roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
 roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
 
 
-
-def find_room_to_reserve():
-	if len(areas["area_id"].values)==0:
-		print("Need to set area ranks")
-	if len(roomtypes["roomtype_id"].values) == 0:
-		print("Need to set roomtype ranks")
-	if len(buildings["building_id"].values) == 0:
-		print("Need to set building ranks")
-	
-	for area in areas["area_id"].values:
-		for roomtype in roomtypes["roomtype_id"].values:
-			for building in buildings["building_id"].values:
-				print(area, roomtype, building)
-				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
-				if len(rooms)>0 and reserve:
-					return (area, roomtype, building, rooms[0])
-	return "", "", "", ""
-
-
 if not init:
 	area, roomtype, building, room = find_room_to_reserve()
-	
-	if reserve:
+	if reserve and len(room)>0:
 		print("Reserving room:")
 		print(room)
 		reserve_room(room, area, roomtype, building)
-
