@@ -1,6 +1,17 @@
 # Automatic room reserver
 Reserves room by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again! 
 
+## Requirements
+Runs python3 using the following libraries:
+
+- requests
+
+- lxml
+
+- numpy
+
+- pandas
+
 ## Setup:
 1. Make sure you have python setup with the correct libraries.
 1. Create env variable "FUSER" with feide-username
@@ -38,13 +49,4 @@ Arguments:
 ## Other 
 This script was written in October 2019 for to work with:  https://tp.uio.no/ntnu/rombestilling/
 
-## Requirements
-Runs python3 using the following libraries:
 
-- requests
-
-- lxml
-
-- numpy
-
-- pandas
