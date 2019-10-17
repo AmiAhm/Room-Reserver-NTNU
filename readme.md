@@ -46,6 +46,6 @@ Arguments:
 | desc       | Description of reservation (Not needed when init)                                         |               | "YOUR DESCRIPTION" |
 
 ## Other 
-This script was written in October 2019 for to work with:  https://tp.uio.no/ntnu/rombestilling/
+This script was written in October 2019 to work with:  https://tp.uio.no/ntnu/rombestilling/
 
 
