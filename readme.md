@@ -30,11 +30,13 @@ Arguments:
 | reserve    | If not init, should post reserve requests?                                                | True          | T/F/True/False     |
 | store      | Store new rooms found in .csv?  (Will make script somewhat slower)                        | True          | T/F/True/False     |
 | duration   | Length of reservation                                                                     | 02:00         | HR:MM              |
-| min_size   | Minimum size of room (number of people)                                                   | 10            | XX                 |
-| reserve_in | Days into the future for when to reserve                                                  | 14            | XX                 |
+| min_size   | Minimum size of room (number of people)                                                   | 10            | Int                 |
+| reserve_in | Days into the future for when to reserve                                                  | 14            | Int                 |
 | start      | Start time of reservation (Not needed when init)                                          |               | HR:MM              |
 | desc       | Description of reservation (Not needed when init)                                         |               | "YOUR DESCRIPTION" |
 
+## Other 
+This script was written in October 2019 for to work with:  https://tp.uio.no/ntnu/rombestilling/
 
 ## Requirements
 Runs python3 using the following libraries:
