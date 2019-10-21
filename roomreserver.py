@@ -57,6 +57,24 @@ else:
 	reserve_in_n_days = int(args['reserve_in']) # Reserve in n_days
 
 
+if 'slack_log' in args.keys():
+	slack_log = args['slack_log'].lower() in ("yes", "true", "t", "1")
+else:
+	slack_log = False
+
+if slack_log:
+	if 'SLACK_TOKEN' not in environ.keys():
+		raise Exception("No feide SLACK TOKEN found. Create env var: SLACK_TOKEN")
+
+	if 'SLACK_CHANNEL' not in environ.keys():
+		raise Exception("No SLACK CHANNEL found. Create env var: SLACK_CHANNEL")
+	if 'SLACK_URL ' not in environ.keys():
+		raise Exception("No SLACK URL found. Create env var: SLACK_URL")
+
+
+	SLACK_TOKEN = environ['SLACK_TOKEN']
+	SLACK_URL = environ['SLACK_URL']
+	SLACK_CHANNEL = environ['SLACK_CHANNEL']
 
 
 
@@ -242,6 +260,7 @@ def reserve_room(room, area, roomtype, building):
 
     reserve_confirmation_request = session.post(MAIN_URL, data=reservation_confirmation_data)
     print("reserve_confirmation_request: " + str(reserve_confirmation_request))
+    return reserve_confirmation_request
 
 def find_room_to_reserve():
 	if len(areas["area_id"].values)==0:
@@ -284,9 +303,18 @@ roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
 roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
 
 
+def log_to_slack(request):
+
+    header = {"Content-Type": "text/plain; charset=utf-8"}
+    params = (('token', SLACK_TOKEN),('channel', SLACK_CHANNEL))
+    main_string = ''.join(html.fromstring(request.content).xpath('//h3/../section/div/span//text()')) + ":mazemap: :tornadotor: :powerstonk:"
+    data = main_string.encode('utf-8')
+    response = requests.post(SLACK_URL, params=params, data=data, headers=header)
+
+
 if not init:
 	area, roomtype, building, room = find_room_to_reserve()
 	if reserve and len(room)>0:
-		print("Reserving room:")
-		print(room)
-		reserve_room(room, area, roomtype, building)
+		reserve_request = reserve_room(room, area, roomtype, building)
+		if slack_log:
+			log_to_slack(reserve_request)
