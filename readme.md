@@ -18,9 +18,9 @@ Runs python3 using the following libraries:
 1. Create env variable "FUSER" with feide-username
 2.  Create env variable "FPASSWORD" with feide-password
 3.  Run `python3 roomreserver.py init=True`
-4. In the newly created `buildings.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
-5. In the newly created `roomtypes.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
-6. In the newly created `areas.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
+  4. In the newly created `buildings.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
+  5. In the newly created `roomtypes.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
+  6. In the newly created `areas.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
 7. If you want to rank rooms before reserving run `python3 roomreserver.py start="HH:MM" duration="HH:MM" min_size="XX" reserve=F` and edit ranks in the newly created `room_priority.csv`. 
 ## How to run:
 `python3 roomreserver.py start="HH:MM" desc="Reservation description HERE" duration="HH:MM" min_size="XX"`
