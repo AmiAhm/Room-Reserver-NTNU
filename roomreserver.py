@@ -101,21 +101,35 @@ buildings_path = "buildings.csv"
 roomtypes_path = "roomtypes.csv"
 
 
+
 # Create session and login.
 session = requests.Session()
 request = session.get(MAIN_URL)
-newUrl = request.url
-asLen = html.fromstring(request.content).xpath('//input[@name="asLen"]/@value')[0]
+
 AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
+form_url = html.fromstring(request.content).xpath('//form/@action')[0]
+
+org_data = {
+    'AuthState': AuthState,
+    'org': 'ntnu.no'
+}
+
+login_page = session.get(form_url, params = org_data)
+
+
+AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
+newUrl = login_page.url
 auth_data = {
     'feidename': USERNAME,
     'password': PASSWORD,
-    'asLen': asLen,
     'AuthState': AuthState,
     'org': 'ntnu.no'
 }
 auth_request = session.post(newUrl, auth_data)
 print("Auth request: " + str(auth_request))
+
+
+
 action = html.fromstring(auth_request.content).xpath('//form/@action')[0]
 SAMLResponse = html.fromstring(auth_request.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
 RelayState = html.fromstring(auth_request.content).xpath('//input[@name="RelayState"]/@value')[0]
@@ -237,7 +251,7 @@ def reserve_room(room, area, roomtype, building):
     print("reserve request: " + str(reserve_request))
 
     # Confrim reservation
-    tokenrb = html.fromstring(reserve_request.content).xpath('//form//input[contains(@name, "tokenrb")]/@value')[0]
+    csrftoken = html.fromstring(reserve_request.content).xpath('//form//input[contains(@name,"csrftoken")]/@value')[0]
     reservation_confirmation_data = {
       'name': reservation_description,
       'notes': '',
@@ -255,7 +269,7 @@ def reserve_room(room, area, roomtype, building):
       'exam': '',
       'single_place': '',
       'dates[]': date_to_reserve_type2,
-      'tokenrb': tokenrb
+      'csrftoken': csrftoken
     }
 
     reserve_confirmation_request = session.post(MAIN_URL, data=reservation_confirmation_data)
