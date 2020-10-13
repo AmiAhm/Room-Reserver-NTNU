@@ -1,5 +1,7 @@
 # Automatic Room Reserver
-Reserves rooms at NTNU by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again! 
+Reserves rooms at NTNU by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again!
+
+Should work with reservation of leseplass.  
 
 
 ## Requirements
@@ -18,10 +20,10 @@ Runs python3 using the following libraries:
 1. Create env variable "FUSER" with feide-username
 2.  Create env variable "FPASSWORD" with feide-password
 3.  Run `python3 roomreserver.py init=True`
-  4. In the newly created `buildings.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
-  5. In the newly created `roomtypes.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
-  6. In the newly created `areas.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored. 
-7. If you want to rank rooms before reserving run `python3 roomreserver.py start="HH:MM" duration="HH:MM" min_size="XX" reserve=F` and edit ranks in the newly created `room_priority.csv`. 
+  4. In the newly created `buildings.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored.
+  5. In the newly created `roomtypes.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored.
+  6. In the newly created `areas.csv` rank what buildings you want to choose from. HIGHER IS BETTER.  0 will be ignored.
+7. If you want to rank rooms before reserving run `python3 roomreserver.py start="HH:MM" duration="HH:MM" min_size="XX" reserve=F` and edit ranks in the newly created `room_priority.csv`.
 ## How to run:
 `python3 roomreserver.py start="HH:MM" desc="Reservation description HERE" duration="HH:MM" min_size="XX"`
 By default:
@@ -33,7 +35,7 @@ By default:
 To run without reserving rooms and only search for new rooms at selected filters:
 `reserve=False`
 
-Arguments: 
+Arguments:
 
 | Parameter  | Description                                                                               | Default value | Format             |
 |------------|-------------------------------------------------------------------------------------------|---------------|--------------------|
@@ -45,11 +47,9 @@ Arguments:
 | reserve_in | Days into the future for when to reserve                                                  | 14            | Int                 |
 | start      | Start time of reservation (Not needed when init)                                          |               | "HR:MM"              |
 | desc       | Description of reservation (Not needed when init)                                         |               | "YOUR DESCRIPTION" |
-| slack_log  | Log to slack, needs SLACK_URL, SLACK_TOKEN and SLACK_CHANNEL                              | F             | 
-                   
+| slack_log  | Log to slack, needs SLACK_URL, SLACK_TOKEN and SLACK_CHANNEL                              | F             |
 
 
-## Other 
-This script was written in October 2019 to work with:  https://tp.uio.no/ntnu/rombestilling/
 
-
+## Other
+This script was updated in October 2020 to https://tp.uio.no/ntnu/rombestilling/. Might not work in the future :(
