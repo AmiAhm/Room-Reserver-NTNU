@@ -1,168 +1,57 @@
-#!/usr/bin/env python
-# coding: utf-8
-import requests
+
 from lxml import html
 from datetime import date, timedelta
 import numpy as np
 import pandas as pd
-from os import path, environ
-import sys
 
-# Read arguments
-args = {}
-for pair in sys.argv[1:]:
-    args.__setitem__(*((pair.split('=', 1) + [''])[:2]))
+import SlackLogger
+import ArgumentReader
+import Statics
+import FeideLogin
 
-if 'FUSER' not in environ.keys():
-	raise Exception("No feide username found. Create env var: FUSER")
+## Read arguments from script initialization
+username, password = ArgumentReader.read_user_name_password()
+init, reserve, store_found = ArgumentReader.red_state_args()
+duration, min_size, reserve_in_n_days, start = ArgumentReader.read_reservation_args()
 
-if 'FPASSWORD' not in environ.keys():
-	raise Exception("No feide username found. Create env var: FPASSWORD")
+if reserve and not init:
+    reservation_description = read_reservation_description()
 
-USERNAME = environ['FUSER'] # Feide username
-PASSWORD = environ['FPASSWORD'] # Feide PASSWORD
+slack_log, slack_token, slack_url, slack_channel = read_slack_args()
 
-if 'init' in args.keys():
-    init = args['init'].lower() in ("yes", "true", "t", "1")
-else:
-    init = False
-
-if 'reserve' in args.keys() and args['reserve'].lower() in ("no", "false", "f", "0"):
-	reserve = False
-else:
-    reserve = True
+slack_logger = SlackLogger(slack_token, slack_channel, slack_url)
 
 
-if 'store' in args.keys()and args['store'].lower() in ("no", "false", "f", "0"):
-    store_found = False
-else:
-    store_found = True
+login_session = FeideLogin.login_to_feide(USERNAME, PASSWORD, MAIN_URL, ORG)
+login_session_js_confirmed = FeideLogin.confirm_js(login_session)
 
-
-
-if 'duration' not in args.keys():
-	duration='02:00'
-else:
-	duration = args['duration'] # Reservation time in hr, max 4hr
-
-
-if 'min_size' not in args.keys():
-	min_size='10'
-else:
-	min_size = args['min_size']
-
-if 'reserve_in' not in args.keys():
-	reserve_in_n_days = 14
-else:
-	reserve_in_n_days = int(args['reserve_in']) # Reserve in n_days
-
-
-if 'slack_log' in args.keys():
-	slack_log = args['slack_log'].lower() in ("yes", "true", "t", "1")
-else:
-	slack_log = False
-
-if slack_log:
-	if 'SLACK_TOKEN' not in environ.keys():
-		raise Exception("No feide SLACK TOKEN found. Create env var: SLACK_TOKEN")
-
-	if 'SLACK_CHANNEL' not in environ.keys():
-		raise Exception("No SLACK CHANNEL found. Create env var: SLACK_CHANNEL")
-	if 'SLACK_URL ' not in environ.keys():
-		raise Exception("No SLACK URL found. Create env var: SLACK_URL")
-
-
-	SLACK_TOKEN = environ['SLACK_TOKEN']
-	SLACK_URL = environ['SLACK_URL']
-	SLACK_CHANNEL = environ['SLACK_CHANNEL']
-
-
-
-if not init:
-	if 'start' not in args.keys():
-		raise Exception("Need start time. Pass start='HH:MM'")
-	else:
-		start = args['start']
-	if 'desc' not in args.keys() and reserve:
-		raise Exception("Need description. Pass description='Your room reservation description here'")
-	elif reserve:
-		reservation_description = args['desc'] # Title of reservation
 
 
 date_to_reserve = date.today()+timedelta(days=reserve_in_n_days)
 date_to_reserve_type1 = date_to_reserve.strftime("%d.%m.%Y")
 date_to_reserve_type2 = date_to_reserve.strftime("%Y-%m-%d")
 day_to_reserve = date_to_reserve.strftime('%a').upper()
-MAIN_URL = 'https://tp.uio.no/ntnu/rombestilling/'
-
-room_priority_path = "room_priority.csv"
-areas_path = "areas.csv"
-buildings_path = "buildings.csv"
-roomtypes_path = "roomtypes.csv"
-
-
-
-# Create session and login.
-session = requests.Session()
-request = session.get(MAIN_URL)
-
-AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
-form_url = html.fromstring(request.content).xpath('//form/@action')[0]
-
-org_data = {
-    'AuthState': AuthState,
-    'org': 'ntnu.no'
-}
-
-login_page = session.get(form_url, params = org_data)
-
-
-AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
-newUrl = login_page.url
-auth_data = {
-    'feidename': USERNAME,
-    'password': PASSWORD,
-    'AuthState': AuthState,
-    'org': 'ntnu.no'
-}
-auth_request = session.post(newUrl, auth_data)
-print("Auth request: " + str(auth_request))
-
-
-
-action = html.fromstring(auth_request.content).xpath('//form/@action')[0]
-SAMLResponse = html.fromstring(auth_request.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
-RelayState = html.fromstring(auth_request.content).xpath('//input[@name="RelayState"]/@value')[0]
-
-auth_confirmation_data = {
-    'SAMLResponse': SAMLResponse,
-    'RelayState': RelayState
-}
-
-nojs_auth_confirmation_request = session.post(action, auth_confirmation_data)
-print("Auth confirmation nojs request: " + str(nojs_auth_confirmation_request))
-
 
 def find_areas(request):
     areas = html.fromstring(request.content).xpath('//select[contains(@name,"area")]/option/text()')
     area_ids = html.fromstring(request.content).xpath('//select[contains(@name,"area")]/option/@value')
     area_df = pd.DataFrame(np.array([areas, area_ids]).T, columns = ["area", "area_id"])
     area_df["rank"] = 0
-    area_df.to_csv(areas_path, index=False)
+    area_df.to_csv(AREAS_PATH, index=False)
 
 def find_buildings(request):
     buildings = html.fromstring(request.content).xpath('//select[contains(@name,"building")]/option/text()')
     buildings_ids = html.fromstring(request.content).xpath('//select[contains(@name,"building")]/option/@value')
     buildings_df = pd.DataFrame(np.array([buildings, buildings_ids]).T, columns = ["building", "building_id"])
     buildings_df["rank"] = 0
-    buildings_df.to_csv(buildings_path, index=False)
+    buildings_df.to_csv(BUILDINGS_PATH, index=False)
 
 def find_roomtypes(request):
     roomtypes = html.fromstring(request.content).xpath('//select[contains(@name,"roomtype")]/option/text()')
     roomtypes_ids = html.fromstring(request.content).xpath('//select[contains(@name,"roomtype")]/option/@value')
     roomtypes_df = pd.DataFrame(np.array([roomtypes, roomtypes_ids]).T, columns = ["roomtype", "roomtype_id"])
     roomtypes_df["rank"] = 0
-    roomtypes_df.to_csv(roomtypes_path, index=False)
+    roomtypes_df.to_csv(ROOMTYPES_PATH, index=False)
 
 def max_room_rank(room_id, found_rooms):
     room_ranks = found_rooms.loc[found_rooms['room_id'] == room_id]['rank'].values
@@ -199,21 +88,21 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
 
     new_rooms = []
     if store_found:
-        path_exists = path.exists(room_priority_path)
+        path_exists = path.exists(ROOM_PRIORITY_PATH)
         if path_exists:
-            found_rooms = pd.read_csv(room_priority_path, encoding='utf8')
+            found_rooms = pd.read_csv(ROOM_PRIORITY_PATH, encoding='utf8')
 
         for room in np.c_[available_room_names, available_room_ids]:
             if not path_exists or not room[0] in found_rooms['room_name'].values:
                 new_rooms.append([room[0],room[1], 0])
         new_rooms = pd.DataFrame(new_rooms,columns=['room_name','room_id','rank'])
-        with open(room_priority_path, 'a+') as f:
+        with open(ROOM_PRIORITY_PATH, 'a+') as f:
             new_rooms.to_csv(f, header=(not path_exists),index = False, encoding='utf8')
 
     if prioritize:
-        path_exists = path.exists(room_priority_path)
+        path_exists = path.exists(ROOM_PRIORITY_PATH)
         if path_exists:
-            found_rooms = pd.read_csv(room_priority_path, encoding='utf8')
+            found_rooms = pd.read_csv(ROOM_PRIORITY_PATH, encoding='utf8')
         else:
             return np.array(available_room_ids)
 
@@ -295,35 +184,28 @@ def find_room_to_reserve():
 
 
 
-if not path.exists(buildings_path):
+if not path.exists(BUILDINGS_PATH):
     find_buildings(nojs_auth_confirmation_request)
-if not path.exists(roomtypes_path):
+if not path.exists(ROOMTYPES_PATH):
     find_roomtypes(nojs_auth_confirmation_request)
-if not path.exists(areas_path):
+if not path.exists(AREAS_PATH):
     find_areas(nojs_auth_confirmation_request)
 
-buildings = pd.read_csv(buildings_path)
+buildings = pd.read_csv(BUILDINGS_PATH)
 buildings = buildings.loc[buildings["rank"] != 0]
 buildings = buildings.sort_values(by=["rank"], ascending = False)
 buildings["building_id"] = buildings["building_id"].astype(int)
 
-areas = pd.read_csv(areas_path)
+areas = pd.read_csv(AREAS_PATH)
 areas = areas.loc[areas["rank"] != 0]
 areas = areas.sort_values(by=["rank"], ascending = False)
 areas["area_id"] = areas["area_id"].astype(int)
 
-roomtypes = pd.read_csv(roomtypes_path)
+roomtypes = pd.read_csv(ROOMTYPES_PATH)
 roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
 roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
 
 
-def log_to_slack(request):
-
-    header = {"Content-Type": "text/plain; charset=utf-8"}
-    params = (('token', SLACK_TOKEN),('channel', SLACK_CHANNEL))
-    main_string = ''.join(html.fromstring(request.content).xpath('//h3/../section/div/span//text()')) + ":mazemap: :tornadotor: :powerstonk:"
-    data = main_string.encode('utf-8')
-    response = requests.post(SLACK_URL, params=params, data=data, headers=header)
 
 
 if not init:
@@ -331,4 +213,5 @@ if not init:
 	if reserve and len(room)>0:
 		reserve_request = reserve_room(room, area, roomtype, building)
 		if slack_log:
-			log_to_slack(reserve_request)
+            message = ''.join(html.fromstring(request.content).xpath('//h3/../section/div/span//text()')) + ":mazemap: :tornadotor: :powerstonk:"
+            slack_logger.log_to_slack(message)
