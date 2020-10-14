@@ -1,7 +1,5 @@
 # Automatic Room Reserver
-Reserves rooms at NTNU by user-selected criterias following a prioritized list. You will never need to wake up early to reserve a room again!
-
-Should work with reservation of leseplass.  
+Reserves rooms at NTNU by user-selected criterias following a prioritized list.
 
 
 ## Requirements
@@ -52,4 +50,4 @@ Arguments:
 
 
 ## Other
-This script was updated in October 2020 to https://tp.uio.no/ntnu/rombestilling/. Might not work in the future :(
+This script was updated in October 2020 on https://tp.uio.no/ntnu/rombestilling/. Might not work in the future :(
