@@ -3,27 +3,37 @@ from lxml import html
 from datetime import date, timedelta
 import numpy as np
 import pandas as pd
+from os import path
 
-import SlackLogger
+from SlackLogger import SlackLogger
+from Statics import *
+
 import ArgumentReader
-import Statics
 import FeideLogin
 
+
+
 ## Read arguments from script initialization
-username, password = ArgumentReader.read_user_name_password()
+username, password = ArgumentReader.read_feide_user()
 init, reserve, store_found = ArgumentReader.red_state_args()
-duration, min_size, reserve_in_n_days, start = ArgumentReader.read_reservation_args()
+
+if not init:
+    duration, min_size, reserve_in_n_days, start = ArgumentReader.read_reservation_args()
+else:
+    duration = '00:30'
+    reserve_in_n_days = 14
+    start = '17:00'
 
 if reserve and not init:
-    reservation_description = read_reservation_description()
+    reservation_description = ArgumentReader.read_reservation_description()
 
-slack_log, slack_token, slack_url, slack_channel = read_slack_args()
+slack_log, slack_token, slack_url, slack_channel = ArgumentReader.read_slack_args()
 
 slack_logger = SlackLogger(slack_token, slack_channel, slack_url)
 
 
-login_session = FeideLogin.login_to_feide(USERNAME, PASSWORD, MAIN_URL, ORG)
-login_session_js_confirmed = FeideLogin.confirm_js(login_session)
+auth_request, login_session = FeideLogin.login_to_feide(username, password, MAIN_URL, ORG)
+login_session_js_confirmed = FeideLogin.confirm_js(auth_request, login_session)
 
 
 
@@ -61,7 +71,7 @@ def max_room_rank(room_id, found_rooms):
     return max(room_ranks)
 
 
-def find_available_rooms(area, roomtype, building, store_found = False, prioritize = True):
+def find_available_rooms(session, area, roomtype, building, store_found = False, prioritize = True):
     room_filter_data = {
       'start': start,
       'duration': duration,
@@ -121,7 +131,7 @@ def find_available_rooms(area, roomtype, building, store_found = False, prioriti
 
 
 # Start reservation of room
-def reserve_room(room, area, roomtype, building):
+def reserve_room(session, room, area, roomtype, building):
     reservation_data = {
       'start': start,
       'size': min_size,
@@ -177,7 +187,7 @@ def find_room_to_reserve():
 		for roomtype in roomtypes["roomtype_id"].values:
 			for building in buildings["building_id"].values:
 				print(area, roomtype, building)
-				rooms = find_available_rooms(area, roomtype, building, store_found = store_found, prioritize = True)
+				rooms = find_available_rooms(login_session, area, roomtype, building, store_found = store_found, prioritize = True)
 				if len(rooms)>0 and reserve:
 					return (area, roomtype, building, rooms[0])
 	return "", "", "", ""
@@ -185,33 +195,30 @@ def find_room_to_reserve():
 
 
 if not path.exists(BUILDINGS_PATH):
-    find_buildings(nojs_auth_confirmation_request)
+    find_buildings(login_session_js_confirmed)
 if not path.exists(ROOMTYPES_PATH):
-    find_roomtypes(nojs_auth_confirmation_request)
+    find_roomtypes(login_session_js_confirmed)
 if not path.exists(AREAS_PATH):
-    find_areas(nojs_auth_confirmation_request)
+    find_areas(login_session_js_confirmed)
 
-buildings = pd.read_csv(BUILDINGS_PATH)
+buildings = pd.read_csv(BUILDINGS_PATH, encoding='utf8')
 buildings = buildings.loc[buildings["rank"] != 0]
 buildings = buildings.sort_values(by=["rank"], ascending = False)
-buildings["building_id"] = buildings["building_id"].astype(int)
 
-areas = pd.read_csv(AREAS_PATH)
+areas = pd.read_csv(AREAS_PATH, encoding='utf8')
 areas = areas.loc[areas["rank"] != 0]
 areas = areas.sort_values(by=["rank"], ascending = False)
-areas["area_id"] = areas["area_id"].astype(int)
 
-roomtypes = pd.read_csv(ROOMTYPES_PATH)
+roomtypes = pd.read_csv(ROOMTYPES_PATH, encoding='utf8')
 roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
 roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
 
 
 
-
 if not init:
-	area, roomtype, building, room = find_room_to_reserve()
-	if reserve and len(room)>0:
-		reserve_request = reserve_room(room, area, roomtype, building)
-		if slack_log:
+    area, roomtype, building, room = find_room_to_reserve()
+    if reserve and len(room)>0:
+        reserve_request = reserve_room(login_session, room, area, roomtype, building)
+        if slack_log:
             message = ''.join(html.fromstring(request.content).xpath('//h3/../section/div/span//text()')) + ":mazemap: :tornadotor: :powerstonk:"
             slack_logger.log_to_slack(message)
