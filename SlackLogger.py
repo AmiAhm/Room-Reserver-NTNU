@@ -1,4 +1,4 @@
-from requests import post
+from requests  import post as post
 
 
 class SlackLogger:
@@ -9,9 +9,9 @@ class SlackLogger:
 
 	def log_to_slack(self, message):
 		header = {"Content-Type": "text/plain; charset=utf-8"}
-	    params = (('token', self.slack_token),('channel', self.slack_channel))
+		params = (('token', self.slack_token),('channel', self.slack_channel))
 		message = message.encode('utf-8')
-	    response = post(SLACK_URL, params=params, data=data, headers=header)
+		response = post(SLACK_URL, params=params, data=data, headers=header)
 
 
 def log_to_slack(logger, request):

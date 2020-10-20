@@ -1,42 +1,38 @@
 import requests
+from lxml import html
 
 def login_to_feide(username, password, url, org):
-    # Create session
     session = requests.Session()
     request = session.get(url)
 
-    # Get authentication state
-    auth_state = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
-
-    # Select orginization
+    AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
     form_url = html.fromstring(request.content).xpath('//form/@action')[0]
+
     org_data = {
-        'AuthState': auth_state,
-        'org': org
+        'AuthState': AuthState,
+        'org': 'ntnu.no'
     }
+
     login_page = session.get(form_url, params = org_data)
 
 
-    # Complete login by posting username and password
-    auth_state = html.fromstring(login_page.content).xpath('//input[@name="AuthState"]/@value')[0]
-    login_page_url = login_page.url
-
+    AuthState = html.fromstring(request.content).xpath('//input[@name="AuthState"]/@value')[0]
+    newUrl = login_page.url
     auth_data = {
         'feidename': username,
         'password': password,
-        'AuthState': auth_state,
-        'org': org
+        'AuthState': AuthState,
+        'org': 'ntnu.no'
     }
-    login_session = session.post(login_page_url, auth_data)
+    auth_request = session.post(newUrl, auth_data)
+    print("Auth request: " + str(auth_request))
 
-    print("Auth request: " + str(login_session))
+    return auth_request, session
 
-    return login_session
-
-def confirm_js(session):
-    action = html.fromstring(session.content).xpath('//form/@action')[0]
-    saml_response = html.fromstring(session.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
-    relay_state = html.fromstring(session.content).xpath('//input[@name="RelayState"]/@value')[0]
+def confirm_js(page, session):
+    action = html.fromstring(page.content).xpath('//form/@action')[0]
+    saml_response = html.fromstring(page.content).xpath('//input[@name="SAMLResponse"]/@value')[0]
+    relay_state = html.fromstring(page.content).xpath('//input[@name="RelayState"]/@value')[0]
 
     auth_confirmation_data = {
         'SAMLResponse': saml_response,

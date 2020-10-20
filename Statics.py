@@ -1,6 +1,6 @@
-global MAIN_URL = 'https://tp.uio.no/ntnu/rombestilling/'
-global ROOM_PRIORITY_PATH = "room_priority.csv"
-global AREAS_PATH = "areas.csv"
-global BUILDINGS_PATH = "buildings.csv"
-global ROOMTYPES_PATH = "roomtypes.csv"
-global ORG = 'ntnu.no'
+MAIN_URL = 'https://tp.uio.no/ntnu/rombestilling/'
+ROOM_PRIORITY_PATH = "room_priority.csv"
+AREAS_PATH = "areas.csv"
+BUILDINGS_PATH = "buildings.csv"
+ROOMTYPES_PATH = "roomtypes.csv"
+ORG = 'ntnu.no'
