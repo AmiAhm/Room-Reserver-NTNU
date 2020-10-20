@@ -1,0 +1,155 @@
+from lxml import html
+import pandas as pd
+from os import path
+from Statics import *
+
+def find_available_rooms(session, area, roomtype, building, store_found = False, prioritize = True):
+    room_filter_data = {
+      'start': start,
+      'duration': duration,
+      'preset_date': date_to_reserve_type1,
+      'area': area,
+      'building': building,
+      'roomtype': roomtype,
+      'size': min_size,
+      'new_equipment': '',
+      'preformsubmit': '1'
+    }
+
+    request = session.post(MAIN_URL, data=room_filter_data)
+    print("Find available rooms request: " + str(request))
+
+    available_room_ids = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/@title')
+    available_room_ids = available_room_ids[0::3]
+
+    available_room_names = html.fromstring(request.content).xpath('//form//table[contains(@class,"possible-rooms-table")]/tbody/tr/td/a/text()')
+    available_room_names = [room.strip() for room in available_room_names]
+
+    if len(available_room_ids) == 0:
+        return np.array([])
+
+    new_rooms = []
+    if store_found:
+        path_exists = path.exists(ROOM_PRIORITY_PATH)
+        if path_exists:
+            found_rooms = pd.read_csv(ROOM_PRIORITY_PATH, encoding='utf8')
+
+        for room in np.c_[available_room_names, available_room_ids]:
+            if not path_exists or not room[0] in found_rooms['room_name'].values:
+                new_rooms.append([room[0],room[1], 0])
+        new_rooms = pd.DataFrame(new_rooms,columns=['room_name','room_id','rank'])
+        with open(ROOM_PRIORITY_PATH, 'a+') as f:
+            new_rooms.to_csv(f, header=(not path_exists),index = False, encoding='utf8')
+
+    if prioritize:
+        path_exists = path.exists(ROOM_PRIORITY_PATH)
+        if path_exists:
+            found_rooms = pd.read_csv(ROOM_PRIORITY_PATH, encoding='utf8')
+        else:
+            return np.array(available_room_ids)
+
+        available_room_ids_ordered = []
+
+        for room_id in available_room_ids:
+            max_room_rank_value =  max_room_rank(room_id, found_rooms)
+            if max_room_rank_value < 0:
+                continue
+            available_room_ids_ordered += [[room_id, max_room_rank_value]]
+        available_room_ids_ordered = sorted(available_room_ids_ordered, key=lambda row: row[1], reverse = True)
+
+        return np.array(available_room_ids_ordered)[:,0]
+    return np.array(available_room_ids)
+
+
+
+# Start reservation of room
+def reserve_room(session, room, area, roomtype, building):
+    reservation_data = {
+      'start': start,
+      'size': min_size,
+      'roomtype': roomtype,
+      'duration': duration,
+      'area': area,
+      'building': building,
+      'preset_date': date_to_reserve_type1,
+      'exam': '',
+      'single_place': '',
+      'room[]': room,
+      'submitall': 'Bestill \u21E8'
+    }
+
+    reserve_request = session.post(MAIN_URL, data=reservation_data)
+    print("reserve request: " + str(reserve_request))
+
+    # Confrim reservation
+    csrftoken = html.fromstring(reserve_request.content).xpath('//form//input[contains(@name,"csrftoken")]/@value')[0]
+    reservation_confirmation_data = {
+      'name': reservation_description,
+      'notes': '',
+      'confirmed': 'true',
+      'confirm': '',
+      'start': start,
+      'size': min_size,
+      'roomtype': roomtype,
+      'duration': duration,
+      'area': area,
+      'room[]': room,
+      'building': building,
+      'preset_day': day_to_reserve,
+      'preset_date': date_to_reserve_type2,
+      'exam': '',
+      'single_place': '',
+      'dates[]': date_to_reserve_type2,
+      'csrftoken': csrftoken
+    }
+
+    reserve_confirmation_request = session.post(MAIN_URL, data=reservation_confirmation_data)
+    print("reserve_confirmation_request: " + str(reserve_confirmation_request))
+    return reserve_confirmation_request
+
+def find_room_to_reserve(session, store_found, areas, roomtypes, buildings):
+	if len(areas["area_id"].values)==0:
+		raise Exception("Need to set area ranks")
+	if len(roomtypes["roomtype_id"].values) == 0:
+		raise Exception("Need to set roomtype ranks")
+	if len(buildings["building_id"].values) == 0:
+		raise Exception("Need to set building ranks")
+
+	for area in areas["area_id"].values:
+		for roomtype in roomtypes["roomtype_id"].values:
+			for building in buildings["building_id"].values:
+				print(area, roomtype, building)
+				rooms = find_available_rooms(session, area, roomtype, building, store_found = store_found, prioritize = True)
+				if len(rooms)>0 and reserve:
+					return (area, roomtype, building, rooms[0])
+	return "", "", "", ""
+
+def max_room_rank(room_id, found_rooms):
+    room_ranks = found_rooms.loc[found_rooms['room_id'] == room_id]['rank'].values
+    if len(room_ranks) == 0:
+        return -1
+
+    return max(room_ranks)
+
+
+def get_room_info():
+    if not path.exists(BUILDINGS_PATH):
+        find_buildings(login_session_js_confirmed)
+    if not path.exists(ROOMTYPES_PATH):
+        find_roomtypes(login_session_js_confirmed)
+    if not path.exists(AREAS_PATH):
+        find_areas(login_session_js_confirmed)
+
+    buildings = pd.read_csv(BUILDINGS_PATH, encoding='utf8')
+    buildings = buildings.loc[buildings["rank"] != 0]
+    buildings = buildings.sort_values(by=["rank"], ascending = False)
+
+    areas = pd.read_csv(AREAS_PATH, encoding='utf8')
+    areas = areas.loc[areas["rank"] != 0]
+    areas = areas.sort_values(by=["rank"], ascending = False)
+
+    roomtypes = pd.read_csv(ROOMTYPES_PATH, encoding='utf8')
+    roomtypes = roomtypes.loc[roomtypes["rank"] != 0]
+    roomtypes = roomtypes.sort_values(by=["rank"], ascending = False)
+
+    return buildings, areas, roomtypes
