@@ -1,6 +1,7 @@
 # Automatic Room Reserver
 Reserves rooms at NTNU by user-selected criterias following a prioritized list.
 
+(spaghetti level code)
 
 ## Requirements
 Runs python3 using the following libraries:
